@@ -6,7 +6,8 @@ import * as bot from "./bot"
 
 class App {
     constructor() {
-        this.mongoSetup();
+        // this.mongoSetup();
+        console.log(bot);
     }
 
     private mongoSetup() {

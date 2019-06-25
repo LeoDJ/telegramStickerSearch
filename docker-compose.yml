@@ -5,8 +5,21 @@ services:
         ports:
             - '9200:9200'
             - '9300:9300'
+        volumes:
+            - esData:/usr/share/elasticsearch/data
         environment:
             - discovery.type=single-node
+
+    kibana:
+        image: 'kibana:6.6.2'
+        ports:
+            - '5601:5601'
+        # volumes:
+        #     - ./data/kibana/config/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+        environment:
+            ELASTICSEARCH_HOSTS: http://elastic:9200
+        depends_on:
+            - elastic
 
     mongo:
         image: mongo:4
@@ -25,3 +38,6 @@ services:
         environment:
             ME_CONFIG_MONGODB_ADMINUSERNAME: master
             ME_CONFIG_MONGODB_ADMINPASSWORD: mORU2nImUvigaVV4C8x9
+
+volumes:
+    esData:
