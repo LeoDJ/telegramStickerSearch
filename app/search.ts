@@ -26,21 +26,23 @@ export class Search {
     }
 
     public async addSticker(sticker: TT.Sticker) {
+        let result: any;
         try {
-            let result = await this.client.search({
+            result = await this.client.search({
                 index: 'sticker',
                 body: {
                     query: { match: { file_id: sticker.file_id } }
-                }
+                },
+                ignore: [404]
             });
         }
         catch (e) {
-
+            console.log(e);
         }
 
         console.log(result);
 
-        if (result.hits.total == 0) {
+        if (result.status == 404 || result.hits.total == 0) {
             console.log("Adding new sticker " + sticker.file_id);
             this.client.index({
                 index: 'sticker',
