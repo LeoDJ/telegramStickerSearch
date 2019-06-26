@@ -3,5 +3,6 @@ export interface Config {
     elasticUrl: string;
     telegram: {
         botToken: string;
+        proxyUrl?: string;
     }
 }

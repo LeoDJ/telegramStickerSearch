@@ -1,11 +1,17 @@
 import * as telegraf from "telegraf";
 import { Config } from "./config";
 let config: Config = require('../config.json');
-import {Search} from './search';
+import { Search } from './search';
+import * as HttpsProxyAgent from 'https-proxy-agent';
 
-const Telegraf = <telegraf.TelegrafConstructor> require('telegraf');
+const Telegraf = <telegraf.TelegrafConstructor>require('telegraf');
 
-const bot = new Telegraf(config.telegram.botToken);
+
+const bot = new Telegraf(config.telegram.botToken, {
+    telegram: {
+        agent: config.telegram.proxyUrl ? new HttpsProxyAgent(config.telegram.proxyUrl) : null
+    }
+});
 const search = new Search();
 
 bot.telegram.getMe().then((botInfo) => {
