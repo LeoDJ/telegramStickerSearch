@@ -40,9 +40,7 @@ export class Search {
             console.log(e);
         }
 
-        console.log(result);
-
-        if (result.status == 404 || result.hits.total == 0) {
+        if (result.status == 404 || result.hits.total.value == 0) {
             console.log("Adding new sticker " + sticker.file_id);
             this.client.index({
                 index: 'sticker',
