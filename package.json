@@ -6,8 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "tsc": "tsc",
-    "dev": "ts-node-dev --respawn --transpileOnly ./app/app.ts",
-    "prod": "tsc && node ./build/app.js"
+    "dev": "ts-node-dev --respawn --transpileOnly ./src/main.ts",
+    "prod": "tsc && node ./build/main.js"
   },
   "keywords": [
     "telegram",

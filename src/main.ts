@@ -4,7 +4,7 @@ let config: Config = require('../config.json');
 import * as bot from "./bot"
 
 
-class App {
+class Main {
     constructor() {
         // this.mongoSetup();
         console.log(bot);
@@ -22,4 +22,4 @@ class App {
     }
 }
 
-export default new App();
+export default new Main();
