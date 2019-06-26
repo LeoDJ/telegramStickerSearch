@@ -25,6 +25,18 @@ export class Search {
         });
     }
 
+    public async userExists(userId: number): Promise<boolean> {
+        let result = await this.client.search({
+            index: 'user',
+            body: {
+                query: { match: { user_id: userId } }
+            },
+            ignore: [404]
+        });
+
+        return (result.hits && result.hits.total.value) == 1;
+    }
+
     public async addSticker(sticker: TT.Sticker) {
         let result: any;
         try {

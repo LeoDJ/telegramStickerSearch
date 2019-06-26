@@ -19,7 +19,16 @@ bot.telegram.getMe().then((botInfo) => {
     console.log("Initialized", bot.options.username);
 });
 
-bot.start(async (ctx) => {
+bot.command('start', async (ctx) => {
+    // TODO fix group parsing (/start@BotName)
+    
+    let args = ctx.message.text.split(' ');
+    let cameFromInline: boolean = args[1] == 'fromInline';
+
+    if (! await search.userExists(ctx.from.id)) {
+        // register new user and send welcome message
+    }
+
     ctx.reply("Welcome to " + bot.options.username);
 });
 
@@ -29,6 +38,18 @@ bot.on('sticker', async (ctx) => {
     ctx.reply(JSON.stringify(ctx.message.sticker, null, 4));
     search.addSticker(ctx.message.sticker);
     // ctx.message.sticker
+});
+
+bot.on('inline_query', async (ctx) => {
+    let cid = ctx.from.id;
+    let query = ctx.inlineQuery.query;
+    if (await search.userExists(cid)) {
+        // search foo
+    } else {
+        // show register prompt
+        return ctx.answerInlineQuery([], { switch_pm_text: "Click here to begin using the bot", switch_pm_parameter: "fromInline" });
+    }
+    // console.log(cid, query);
 });
 
 bot.startPolling();
