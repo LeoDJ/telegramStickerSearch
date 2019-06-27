@@ -21,7 +21,7 @@ bot.telegram.getMe().then((botInfo) => {
 
 bot.command('start', async (ctx) => {
     // TODO fix group parsing (/start@BotName)
-    
+
     let args = ctx.message.text.split(' ');
     let cameFromInline: boolean = args[1] == 'fromInline';
 
@@ -38,7 +38,7 @@ bot.command('start', async (ctx) => {
 });
 
 bot.on('sticker', async (ctx) => {
-    console.log(ctx.message.sticker);
+    console.log("received sticker", ctx.message.sticker);
     // console.log(await ctx.telegram.getStickerSet(ctx.message.sticker.set_name));
     ctx.reply(JSON.stringify(ctx.message.sticker, null, 4));
     search.addSticker(ctx.message.sticker);
@@ -50,15 +50,31 @@ bot.on('inline_query', async (ctx) => {
     let query = ctx.inlineQuery.query;
     if (await search.userExists(cid)) {
         // search foo
+        let results = await search.searchSticker(query, cid, +ctx.inlineQuery.offset);
+        return ctx.answerInlineQuery(
+            results,
+            {
+                cache_time: 5,
+                is_personal: true,
+                // only provide next offset, when there are (probably) more data to query (TODO: check actual ES query result count here)
+                next_offset: (results.length == 50) ? (ctx.inlineQuery.offset + 50) : "" 
+            }
+        );
     } else {
         // show register prompt
-        return ctx.answerInlineQuery([], { switch_pm_text: "Click here to begin using the bot", switch_pm_parameter: "fromInline" });
+        return ctx.answerInlineQuery(
+            [],
+            {
+                switch_pm_text: "Click here to begin using the bot",
+                switch_pm_parameter: "fromInline"
+            }
+        );
     }
     // console.log(cid, query);
 });
 
 bot.on('chosen_inline_result', async (ctx) => {
-    console.log(ctx.chosenInlineResult);
+    console.log("chosen inline result", ctx.chosenInlineResult);
 });
 
 bot.startPolling();

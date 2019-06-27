@@ -3,6 +3,7 @@ import { Config } from "./config";
 let config: Config = require('../config.json');
 import * as TT from "telegram-typings";
 import { UserState } from './models/UserState';
+import { InlineQueryResult } from 'telegraf/typings/telegram-types';
 
 export class Search {
     client: elasticsearch.Client;
@@ -93,7 +94,26 @@ export class Search {
                 }
             });
         }
+    }
 
+    public async searchSticker(query: string, userId: number, offset: number = 0): Promise<InlineQueryResult[]> {
+        let result = await this.client.search({
+            index: 'sticker',
+            from: offset,
+            size: 50, // telegram inline expects a maximum of 50 results
+            body: {
+
+            }
+        })
+        console.log("es sticker search result", result, result.hits.hits);
+
+        return result.hits.hits.map(res =>
+            <TT.InlineQueryResultCachedSticker>{
+                type: "sticker",
+                id: res._source.file_id,
+                sticker_file_id: res._source.file_id
+            }
+        );
 
     }
 }
