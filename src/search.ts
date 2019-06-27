@@ -2,6 +2,7 @@ import * as elasticsearch from 'elasticsearch';
 import { Config } from "./config";
 let config: Config = require('../config.json');
 import * as TT from "telegram-typings";
+import { UserState } from './models/UserState';
 
 export class Search {
     client: elasticsearch.Client;
@@ -29,12 +30,39 @@ export class Search {
         let result = await this.client.search({
             index: 'user',
             body: {
-                query: { match: { user_id: userId } }
+                query: { match: { id: userId } }
             },
             ignore: [404]
         });
 
         return (result.hits && result.hits.total.value) == 1;
+    }
+
+    public async initUser(userId: number) {
+        this.client.update({
+            index: 'user',
+            type: '_doc',
+            id: String(userId),
+            body: {
+                doc: {
+                    user_state: UserState.Initialized,
+                    user_state_data: {}
+                }
+            },
+            ignore: [404]
+        });
+    }
+
+    public async registerUser(user: TT.User) {
+        let result = await this.client.index({
+            index: 'user',
+            type: '_doc',
+            id: String(user.id),
+
+            body: user
+        });
+
+        this.initUser(user.id);
     }
 
     public async addSticker(sticker: TT.Sticker) {
@@ -49,7 +77,7 @@ export class Search {
             });
         }
         catch (e) {
-            console.log(e);
+            console.trace(e);
         }
 
         if (result.status == 404 || result.hits.total.value == 0) {
@@ -57,13 +85,13 @@ export class Search {
             this.client.index({
                 index: 'sticker',
                 type: '_doc',
-
+                id: sticker.file_id,
                 body: {
                     set_name: sticker.set_name,
                     file_id: sticker.file_id,
                     emoji_string: sticker.emoji
                 }
-            })
+            });
         }
 
 

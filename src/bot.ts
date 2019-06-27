@@ -27,9 +27,14 @@ bot.command('start', async (ctx) => {
 
     if (! await search.userExists(ctx.from.id)) {
         // register new user and send welcome message
+        search.registerUser(ctx.from);
+        ctx.reply("Welcome to " + bot.options.username);
+
+    } else {
+        // TODO reset user state
+        search.initUser(ctx.from.id);
     }
 
-    ctx.reply("Welcome to " + bot.options.username);
 });
 
 bot.on('sticker', async (ctx) => {
@@ -50,6 +55,10 @@ bot.on('inline_query', async (ctx) => {
         return ctx.answerInlineQuery([], { switch_pm_text: "Click here to begin using the bot", switch_pm_parameter: "fromInline" });
     }
     // console.log(cid, query);
+});
+
+bot.on('chosen_inline_result', async (ctx) => {
+    console.log(ctx.chosenInlineResult);
 });
 
 bot.startPolling();
