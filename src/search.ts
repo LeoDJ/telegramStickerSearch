@@ -105,7 +105,7 @@ export class Search {
 
             }
         })
-        console.log("es sticker search result", result, result.hits.hits);
+        console.log("ES sticker search result", result, result.hits.hits);
 
         return result.hits.hits.map(res =>
             <TT.InlineQueryResultCachedSticker>{

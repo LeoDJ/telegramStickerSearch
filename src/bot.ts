@@ -27,6 +27,7 @@ bot.command('start', async (ctx) => {
 
     if (! await search.userExists(ctx.from.id)) {
         // register new user and send welcome message
+        console.log("New User:", ctx.from.username || ctx.from.first_name);
         search.registerUser(ctx.from);
         ctx.reply("Welcome to " + bot.options.username);
 
