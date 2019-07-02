@@ -5,9 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "tsc": "tsc",
+    "tsc": "tsc --outDir build ./src/main.ts",
     "dev": "ts-node-dev --respawn --transpileOnly ./src/main.ts",
-    "prod": "tsc && node ./build/main.js"
+    "prod": "tsc --outDir build ./src/main.ts && node ./build/main.js"
   },
   "keywords": [
     "telegram",
@@ -18,9 +18,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@types/elasticsearch": "^5.0.32",
+    "@elastic/elasticsearch": "^7.1.0",
     "@types/mongodb": "^3.1.27",
-    "elasticsearch": "^15.4.1",
     "https-proxy-agent": "^2.2.1",
     "mongodb": "^3.1.13",
     "mongoose": "^5.5.11",

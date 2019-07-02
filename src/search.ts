@@ -1,4 +1,4 @@
-import * as elasticsearch from 'elasticsearch';
+import * as es from '@elastic/elasticsearch';
 import { Config } from "./config";
 let config: Config = require('../config.json');
 import * as TT from "telegram-typings";
@@ -6,37 +6,42 @@ import { UserState } from './models/UserState';
 import { InlineQueryResult } from 'telegraf/typings/telegram-types';
 
 export class Search {
-    client: elasticsearch.Client;
+    client: es.Client;
     constructor() {
         this.elasticSetup();
 
-        this.client.ping({ requestTimeout: 1000 }, (error) => {
+        this.client.ping({}, (error) => {
             if (error) {
                 console.trace('Elasticsearch unreachable');
             }
             else {
                 console.log('Connected to Elasticsearch succesfully');
             }
-        })
+        });
     }
 
     private elasticSetup() {
-        this.client = new elasticsearch.Client({
-            host: config.elasticUrl,
-            log: 'info'
+        this.client = new es.Client({
+            node: config.elasticUrl,
+            // log: 'info'
         });
     }
 
     public async userExists(userId: number): Promise<boolean> {
-        let result = await this.client.search({
-            index: 'user',
-            body: {
-                query: { match: { id: userId } }
-            },
-            ignore: [404]
-        });
+        try {
+            let result = await this.client.search({
+                index: 'user',
+                body: {
+                    query: { match: { id: userId } }
+                }
+            });
 
-        return (result.hits && result.hits.total.value) == 1;
+            return (result.body.hits && result.body.hits.total.value) == 1;
+        }
+        catch (err) {
+            // console.trace(err);
+            return false;
+        }
     }
 
     public async initUser(userId: number) {
@@ -49,8 +54,7 @@ export class Search {
                     user_state: UserState.Initialized,
                     user_state_data: {}
                 }
-            },
-            ignore: [404]
+            }
         });
     }
 
@@ -66,22 +70,25 @@ export class Search {
         this.initUser(user.id);
     }
 
-    public async addSticker(sticker: TT.Sticker) {
+    public async stickerExists(fileId: string): Promise<boolean> {
         let result: any;
         try {
             result = await this.client.search({
                 index: 'sticker',
                 body: {
-                    query: { match: { file_id: sticker.file_id } }
-                },
-                ignore: [404]
+                    query: { match: { file_id: fileId } }
+                }
             });
+            return (result.statusCode != 404 && result.body.hits.total.value > 0);
         }
         catch (e) {
             console.trace(e);
+            return false;
         }
+    }
 
-        if (result.status == 404 || result.hits.total.value == 0) {
+    public async addSticker(sticker: TT.Sticker) {
+        if (! await this.stickerExists(sticker.file_id)) {
             console.log("Adding new sticker " + sticker.file_id);
             this.client.index({
                 index: 'sticker',
@@ -105,9 +112,9 @@ export class Search {
 
             }
         })
-        console.log("ES sticker search result", result, result.hits.hits);
+        console.log("ES sticker search result", result.body, result.body.hits.hits);
 
-        return result.hits.hits.map(res =>
+        return result.body.hits.hits.map(res =>
             <TT.InlineQueryResultCachedSticker>{
                 type: "sticker",
                 id: res._source.file_id,
