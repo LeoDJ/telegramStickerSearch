@@ -12,6 +12,10 @@ export const emojiStringToArray = (str) => {
     return arr;
 };
 
+export const emojiToTelegramUnicode = (input) => {
+    return emojiToUnicode(input).split(' ').filter(e => e != '200d' && e != 'fe0f').join('-');
+}
+
 export const emojiToUnicode = (input) => {
     return emojiToUnicodeRaw(input).split(' ').map(val => parseInt(val).toString(16)).join(' ')
 }

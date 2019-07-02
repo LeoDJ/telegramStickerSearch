@@ -3,7 +3,6 @@ import { Config } from "./config";
 let config: Config = require('../config.json');
 import { Search } from './search';
 import * as HttpsProxyAgent from 'https-proxy-agent';
-import {emojiToUnicode, emojiStringToArray} from './emoji';
 
 const Telegraf = <telegraf.TelegrafConstructor>require('telegraf');
 
@@ -42,7 +41,6 @@ bot.command('start', async (ctx) => {
 bot.on('sticker', async (ctx) => {
     console.log("received sticker", ctx.message.sticker);
     // console.log(await ctx.telegram.getStickerSet(ctx.message.sticker.set_name));
-    console.log(emojiStringToArray(ctx.message.sticker.emoji).map(emojiToUnicode));
     ctx.reply(JSON.stringify(ctx.message.sticker, null, 4));
     search.addSticker(ctx.message.sticker);
     // ctx.message.sticker
@@ -68,12 +66,13 @@ bot.on('inline_query', async (ctx) => {
         return ctx.answerInlineQuery(
             [],
             {
+                cache_time: 1,
                 switch_pm_text: "Click here to begin using the bot",
                 switch_pm_parameter: "fromInline"
             }
         );
     }
-    // console.log(cid, query);
+    console.log(cid, query);
 });
 
 bot.on('chosen_inline_result', async (ctx) => {

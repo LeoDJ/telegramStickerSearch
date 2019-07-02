@@ -4,6 +4,8 @@ let config: Config = require('../config.json');
 import * as TT from "telegram-typings";
 import { UserState } from './models/UserState';
 import { InlineQueryResult } from 'telegraf/typings/telegram-types';
+import {emojiToUnicode, emojiStringToArray, emojiToTelegramUnicode} from './emoji';
+let emojiData = require('../data/emoji_autocomplete.json');
 
 export class Search {
     client: es.Client;
@@ -82,14 +84,21 @@ export class Search {
             return (result.statusCode != 404 && result.body.hits.total.value > 0);
         }
         catch (e) {
-            console.trace(e);
+            // console.trace(e);
+            console.error('No "sticker" index exists, will probably get created now');
             return false;
         }
     }
 
     public async addSticker(sticker: TT.Sticker) {
+        console.log(emojiToTelegramUnicode(sticker.emoji));
+
         if (! await this.stickerExists(sticker.file_id)) {
             console.log("Adding new sticker " + sticker.file_id);
+
+            let emojiAliases = emojiData[emojiToTelegramUnicode(sticker.emoji)];
+            console.log(sticker.emoji, emojiAliases),
+
             this.client.index({
                 index: 'sticker',
                 type: '_doc',
@@ -97,7 +106,8 @@ export class Search {
                 body: {
                     set_name: sticker.set_name,
                     file_id: sticker.file_id,
-                    emoji_string: sticker.emoji
+                    emoji: sticker.emoji,
+                    emoji_str: emojiAliases
                 }
             });
         }
