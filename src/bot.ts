@@ -39,11 +39,36 @@ bot.command('start', async (ctx) => {
 });
 
 bot.on('sticker', async (ctx) => {
-    console.log("received sticker", ctx.message.sticker);
+    let stickerId = ctx.message.sticker.file_id;
+    console.log("received sticker", stickerId);
+
     // console.log(await ctx.telegram.getStickerSet(ctx.message.sticker.set_name));
-    ctx.reply(JSON.stringify(ctx.message.sticker, null, 4));
-    search.addSticker(ctx.message.sticker);
-    // ctx.message.sticker
+    // ctx.reply(JSON.stringify(ctx.message.sticker, null, 4));
+
+    let msg = '';
+    if (!search.stickerExists(stickerId)) {
+        msg += `New untagged sticker found. Let's add some tags now.`;
+        await search.addSticker(ctx.message.sticker);
+    } else {
+        msg += `Current tags:`;
+        console.log(await search.getStickerTags(stickerId));
+    }
+
+    ctx.reply(
+        msg,
+        telegraf.Extra.HTML().markup(
+            telegraf.Markup.inlineKeyboard([
+                [telegraf.Markup.callbackButton('NSFW: ❌', 'nsfw'),
+                telegraf.Markup.callbackButton('Furry: ✅', 'furry')],
+                [telegraf.Markup.callbackButton('Tag1', 'tag1'),
+                telegraf.Markup.callbackButton('Tag2', 'tag2'),
+                telegraf.Markup.callbackButton('Tag3', 'tag3'),
+                telegraf.Markup.callbackButton('Tag4SlightlyLongerThanUsual', 'tag4'),
+                ]
+            ])
+        )
+    );
+
 });
 
 bot.on('inline_query', async (ctx) => {
@@ -58,7 +83,7 @@ bot.on('inline_query', async (ctx) => {
                 cache_time: 5,
                 is_personal: true,
                 // only provide next offset, when there are (probably) more data to query (TODO: check actual ES query result count here)
-                next_offset: (results.length == 50) ? (ctx.inlineQuery.offset + 50) : "" 
+                next_offset: (results.length == 50) ? (ctx.inlineQuery.offset + 50) : ""
             }
         );
     } else {

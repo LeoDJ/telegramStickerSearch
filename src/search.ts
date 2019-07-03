@@ -4,7 +4,7 @@ let config: Config = require('../config.json');
 import * as TT from "telegram-typings";
 import { UserState } from './models/UserState';
 import { InlineQueryResult } from 'telegraf/typings/telegram-types';
-import {emojiToUnicode, emojiStringToArray, emojiToTelegramUnicode} from './emoji';
+import { emojiToUnicode, emojiStringToArray, emojiToTelegramUnicode } from './emoji';
 let emojiData = require('../data/emoji_autocomplete.json');
 
 export class Search {
@@ -89,6 +89,23 @@ export class Search {
             return false;
         }
     }
+
+    public async getStickerTags(fileId: string): Promise<string[]> {
+        try {
+            let result = await this.client.search({
+                index: 'sticker',
+                body: {
+                    query: { match: { file_id: fileId } }
+                }
+            });
+            return result.body.hits.hits[0]._source.tags;
+        }
+        catch (e) {
+            // console.trace(e);
+            return [];
+        }
+    }
+
 
     public async addSticker(sticker: TT.Sticker) {
         console.log(emojiToTelegramUnicode(sticker.emoji));
