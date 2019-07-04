@@ -1,1 +1,9 @@
-{"see": "app/config.ts"}
+// see "app/config.ts"
+{
+    "mongoUrl": "localhost:27017",
+    "elasticUrl": "http://localhost:9200",
+    "telegram": {
+        "botToken": "botTokenHere",
+        "proxyUrl": ""
+    }
+}

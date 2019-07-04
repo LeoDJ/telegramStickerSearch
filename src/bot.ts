@@ -1,10 +1,11 @@
-import * as telegraf from "telegraf";
+import { TelegrafConstructor, Extra, Markup, CallbackButton } from "telegraf";
 import { Config } from "./config";
 let config: Config = require('../config.json');
 import { Search } from './search';
 import * as HttpsProxyAgent from 'https-proxy-agent';
+import { ExtraEditMessage } from "telegraf/typings/telegram-types";
 
-const Telegraf = <telegraf.TelegrafConstructor>require('telegraf');
+const Telegraf = <TelegrafConstructor>require('telegraf');
 
 
 const bot = new Telegraf(config.telegram.botToken, {
@@ -38,6 +39,33 @@ bot.command('start', async (ctx) => {
 
 });
 
+let generateTaggingInline = async (stickerId: string): Promise<ExtraEditMessage> => {
+    let tags = await search.getStickerTags(stickerId);
+    let isNsfw = tags.indexOf('nsfw') > 0;
+    let isFurry = tags.indexOf('furry') > 0;
+    tags = tags.filter(t => t != 'furry' && t != 'nsfw');
+    let inlineButtons = [[]];
+    inlineButtons[0].push(Markup.callbackButton('Furry: ' + isFurry ? '✅' : '❌', 'toggle_tag furry ' + stickerId));
+    inlineButtons[0].push(Markup.callbackButton('NSFW: ' + isNsfw ? '✅' : '❌', 'toggle_tag nsfw ' + stickerId));
+
+    let tmp = [];
+    let tagsPerLine = 3;
+    let idx = 0;
+    tags.forEach((tag, i) => {
+        if (i % tagsPerLine == 0) {
+            inlineButtons.push(tmp);
+            tmp = [];
+        }
+        // TODO: show a X only for removable tags
+        tmp.push(Markup.callbackButton(tag, 'remove_tag ' + tag + ' ' + stickerId));
+    });
+    if (tmp.length > 0) {
+        inlineButtons.push(tmp);
+    }
+
+    return Extra.HTML().markup(Markup.inlineKeyboard(inlineButtons));
+}
+
 bot.on('sticker', async (ctx) => {
     let stickerId = ctx.message.sticker.file_id;
     console.log("received sticker", stickerId);
@@ -46,7 +74,7 @@ bot.on('sticker', async (ctx) => {
     // ctx.reply(JSON.stringify(ctx.message.sticker, null, 4));
 
     let msg = '';
-    if (!search.stickerExists(stickerId)) {
+    if (! await search.stickerExists(stickerId)) {
         msg += `New untagged sticker found. Let's add some tags now.`;
         await search.addSticker(ctx.message.sticker);
     } else {
@@ -54,20 +82,7 @@ bot.on('sticker', async (ctx) => {
         console.log(await search.getStickerTags(stickerId));
     }
 
-    ctx.reply(
-        msg,
-        telegraf.Extra.HTML().markup(
-            telegraf.Markup.inlineKeyboard([
-                [telegraf.Markup.callbackButton('NSFW: ❌', 'nsfw'),
-                telegraf.Markup.callbackButton('Furry: ✅', 'furry')],
-                [telegraf.Markup.callbackButton('Tag1', 'tag1'),
-                telegraf.Markup.callbackButton('Tag2', 'tag2'),
-                telegraf.Markup.callbackButton('Tag3', 'tag3'),
-                telegraf.Markup.callbackButton('Tag4SlightlyLongerThanUsual', 'tag4'),
-                ]
-            ])
-        )
-    );
+    ctx.reply(msg, await generateTaggingInline(stickerId));
 
 });
 
@@ -102,6 +117,20 @@ bot.on('inline_query', async (ctx) => {
 
 bot.on('chosen_inline_result', async (ctx) => {
     console.log("chosen inline result", ctx.chosenInlineResult);
+});
+
+bot.on('callback_query', async (ctx) => {
+    let args = ctx.callbackQuery.data.split(' '); // splits command (eg. 'remove_tag asdf 1241512')
+    switch (args[0]) {
+        case 'toggle_tag':
+            search.toggleTag(args[2], args[1]);
+            break;
+        case 'remove_tag':
+            // TODO: check if authorized to remove
+            search.removeTag(args[2], args[1]);
+            break;
+    }
+    console.log('received callback query:', ctx.callbackQuery);
 });
 
 bot.startPolling();

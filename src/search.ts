@@ -106,6 +106,22 @@ export class Search {
         }
     }
 
+    public async removeTag(fileId: string, tag: string) {
+        try {
+            let result = await this.client.update({
+                index: 'sticker',
+                type: '_doc',
+                id: fileId,
+                script: 'ctx._source.tags.remove(tag)',
+                params: {
+                    tag: tag
+                }
+            });
+        } catch (err) {
+            console.trace(err);
+        }
+    }
+
 
     public async addSticker(sticker: TT.Sticker) {
         console.log(emojiToTelegramUnicode(sticker.emoji));
@@ -116,17 +132,17 @@ export class Search {
             let emojiAliases = emojiData[emojiToTelegramUnicode(sticker.emoji)];
             console.log(sticker.emoji, emojiAliases),
 
-            this.client.index({
-                index: 'sticker',
-                type: '_doc',
-                id: sticker.file_id,
-                body: {
-                    set_name: sticker.set_name,
-                    file_id: sticker.file_id,
-                    emoji: sticker.emoji,
-                    emoji_str: emojiAliases
-                }
-            });
+                this.client.index({
+                    index: 'sticker',
+                    type: '_doc',
+                    id: sticker.file_id,
+                    body: {
+                        set_name: sticker.set_name,
+                        file_id: sticker.file_id,
+                        emoji: sticker.emoji,
+                        emoji_str: emojiAliases
+                    }
+                });
         }
     }
 
