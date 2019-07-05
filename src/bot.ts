@@ -5,6 +5,7 @@ import { Search } from './search';
 import * as HttpsProxyAgent from 'https-proxy-agent';
 import { ExtraEditMessage } from "telegraf/typings/telegram-types";
 import { UserState } from "./models/UserState";
+import { emojiStringToArray, emojiToUnicode, emojiToUnicodeRaw } from "./emoji";
 
 const Telegraf = <TelegrafConstructor>require('telegraf');
 
@@ -52,8 +53,8 @@ async function generateTaggingInline(stickerId: string, tags?: string[]): Promis
     let isFurry = tags.indexOf('furry') > -1;
     tags = tags.filter(t => t != 'furry' && t != 'nsfw');
     let inlineButtons = [[]];
-    inlineButtons[0].push(Markup.callbackButton('Furry: ' + (isFurry ? '✅' : '❌'), 'toggle_tag furry ' + stickerId));
-    inlineButtons[0].push(Markup.callbackButton('NSFW: ' + (isNsfw ? '✅' : '❌'), 'toggle_tag nsfw ' + stickerId));
+    inlineButtons[0].push(Markup.callbackButton('Furry: ' + (isFurry ? '✅' : '❌'), '^ furry ' + stickerId));
+    inlineButtons[0].push(Markup.callbackButton('NSFW: ' + (isNsfw ? '✅' : '❌'), '^ nsfw ' + stickerId));
 
     let tmp = [];
     let tagsPerLine = 3;
@@ -64,7 +65,7 @@ async function generateTaggingInline(stickerId: string, tags?: string[]): Promis
             tmp = [];
         }
         // TODO: show a X only for removable tags
-        tmp.push(Markup.callbackButton(tag, 'remove_tag ' + tag + ' ' + stickerId));
+        tmp.push(Markup.callbackButton(tag, '- ' + tag + ' ' + stickerId));
     });
     if (tmp.length > 0) {
         inlineButtons.push(tmp);
@@ -125,7 +126,7 @@ async function updateTaggingMessage(chatId: number, messageId: number, stickerId
 async function handleTaggingInput(input: string, stickerId: string) {
     input.replace('/tag', '');
     let tags = input.split(/[, ]+/);
-    tags = tags.map(t => t.substring(0, 25)); // long tags somehow break the bot, TODO: find out why
+    tags = tags.map(t => t.substring(0, 30)); // max 64 chars for callback data (31 for sticker id, 3 for control = 30 for tag name)
     // console.log(tags);
     return await search.addTags(stickerId, tags);
 }
@@ -181,11 +182,11 @@ bot.on('callback_query', async (ctx) => {
     let cbMsg = '';
     let result;
     switch (cmd) {
-        case 'toggle_tag':
+        case '^':
             result = await search.toggleTag(stickerId, tag);
             cbMsg = `Toggled flag '${tag}'`;
             break;
-        case 'remove_tag':
+        case '-':
             // TODO: check if authorized to remove
             result = await search.removeTag(stickerId, tag);
             cbMsg = `Removed tag '${tag}'`;
