@@ -44,8 +44,10 @@ bot.command('start', async (ctx) => {
 
 });
 
-async function generateTaggingInline(stickerId: string): Promise<ExtraEditMessage> {
-    let tags = await search.getStickerTags(stickerId) || [];
+async function generateTaggingInline(stickerId: string, tags?: string[]): Promise<ExtraEditMessage> {
+    if (tags == undefined) {
+        tags = await search.getStickerTags(stickerId) || [];
+    }
     let isNsfw = tags.indexOf('nsfw') > -1;
     let isFurry = tags.indexOf('furry') > -1;
     tags = tags.filter(t => t != 'furry' && t != 'nsfw');
@@ -98,11 +100,16 @@ bot.on('sticker', async (ctx) => {
 
 // have to delay, because Elasticsearch is not instant updating
 // TODO: make it instant updating (implementing other generateTaggingInline, without direct DB query)
-async function updateTaggingMessage(chatId: number, messageId: number, stickerId: string, text?: string) {
+async function updateTaggingMessage(chatId: number, messageId: number, stickerId: string, tags?: string[], text?: string) {
     return new Promise(resolve => {
         setTimeout(async () => {
             try {
-                await bot.telegram.editMessageText(chatId,messageId, undefined, text || stickerTaggingMessage, await generateTaggingInline(stickerId));
+                await bot.telegram.editMessageText(
+                    chatId,
+                    messageId, 
+                    undefined, 
+                    text || stickerTaggingMessage, 
+                    await generateTaggingInline(stickerId, tags));
             }
             catch (err) {
                 // don't print bad request errors, that happen when message is updated with same content
@@ -111,15 +118,16 @@ async function updateTaggingMessage(chatId: number, messageId: number, stickerId
                 } 
             }
             resolve();
-        }, 1500); 
+        }, (tags == undefined) ? 1500 : 0); 
     });
 }
 
 async function handleTaggingInput(input: string, stickerId: string) {
     input.replace('/tag', '');
     let tags = input.split(/[, ]+/);
+    tags = tags.map(t => t.substring(0, 25)); // long tags somehow break the bot, TODO: find out why
     // console.log(tags);
-    await search.addTags(stickerId, tags);
+    return await search.addTags(stickerId, tags);
 }
 
 bot.on('message', async (ctx) => {
@@ -128,8 +136,8 @@ bot.on('message', async (ctx) => {
     let state = await search.getUserState(cid);
     switch(state.userState) {
         case UserState.TaggingSticker:
-            handleTaggingInput(ctx.message.text, state.userStateData.stickerId);
-            updateTaggingMessage(cid, state.userStateData.messageId, state.userStateData.stickerId);
+            let result = await handleTaggingInput(ctx.message.text, state.userStateData.stickerId);
+            updateTaggingMessage(cid, state.userStateData.messageId, state.userStateData.stickerId, result.body.get._source.tags);
         break;
     }
 });
@@ -171,20 +179,21 @@ bot.on('callback_query', async (ctx) => {
     let args = ctx.callbackQuery.data.split(' '); // splits command (eg. 'remove_tag asdf 1241512')
     let cmd = args[0], tag = args[1], stickerId = args[2];
     let cbMsg = '';
+    let result;
     switch (cmd) {
         case 'toggle_tag':
-            await search.toggleTag(stickerId, tag);
+            result = await search.toggleTag(stickerId, tag);
             cbMsg = `Toggled flag '${tag}'`;
             break;
         case 'remove_tag':
             // TODO: check if authorized to remove
-            await search.removeTag(stickerId, tag);
+            result = await search.removeTag(stickerId, tag);
             cbMsg = `Removed tag '${tag}'`;
             break;
     }
 
 
-    await updateTaggingMessage(ctx.callbackQuery.message.chat.id, ctx.callbackQuery.message.message_id, stickerId);
+    await updateTaggingMessage(ctx.callbackQuery.message.chat.id, ctx.callbackQuery.message.message_id, stickerId, result.body.get._source.tags);
     ctx.answerCbQuery(cbMsg);
     
     // console.log('received callback query:', ctx.callbackQuery);

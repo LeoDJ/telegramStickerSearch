@@ -136,9 +136,10 @@ export class Search {
     public async tagOperation(fileId: string, tag: string | string[], script: string) {
         let result;
         try {
-            result = await this.client.update({
+            return await this.client.update({
                 index: 'sticker',
                 id: fileId,
+                _source: true,
                 body: {
                     script: {
                         source: script,
