@@ -46,18 +46,45 @@ export class Search {
         }
     }
 
-    public async initUser(userId: number) {
+    public async getUserState(userId: number) {
+        try {
+            let result = await this.client.search({
+                index: 'user',
+                body: {
+                    query: { match: { id: userId } }
+                }
+            });
+            let user = result.body.hits.hits[0]._source;
+            return {
+                userState: user.user_state,
+                userStateData: user.user_state_data
+            }
+        }
+        catch (e) {
+            // console.trace(e);
+            return {};
+        }
+    }
+
+    public async setUserState(userId: number, userState: UserState, userStateData?: object) {
+        if (userStateData == undefined) {
+            userStateData = {};
+        }
         this.client.update({
             index: 'user',
             type: '_doc',
             id: String(userId),
             body: {
                 doc: {
-                    user_state: UserState.Initialized,
-                    user_state_data: {}
+                    user_state: userState,
+                    user_state_data: userStateData
                 }
             }
         });
+    }
+
+    public async initUser(userId: number) {
+        return this.setUserState(userId, UserState.Initialized, {});
     }
 
     public async registerUser(user: TT.User) {
@@ -106,8 +133,7 @@ export class Search {
         }
     }
 
-    public async tagOperation(fileId: string, tag: string, script: string) {
-        tag = tag.toLowerCase();
+    public async tagOperation(fileId: string, tag: string | string[], script: string) {
         let result;
         try {
             result = await this.client.update({
@@ -129,15 +155,36 @@ export class Search {
     }
 
     public async addTag(fileId: string, tag: string) {
-        return this.tagOperation(fileId, tag, 'if (!ctx._source.tags.contains(params.tag)) { ctx._source.tags.add(params.tag) }');
+        tag = tag.toLowerCase();
+        return this.tagOperation(fileId, tag, `
+            if (!ctx._source.tags.contains(params.tag)) { 
+                ctx._source.tags.add(params.tag) 
+        }`);
+    }
+
+    public async addTags(fileId: string, tags: string[]) {
+        tags = tags.map(t => t.toLowerCase());
+        return this.tagOperation(fileId, tags, `
+            ctx._source.tags.addAll(params.tag);
+            ctx._source.tags = ctx._source.tags.stream().distinct().collect(Collectors.toList());
+        `); 
     }
 
     public async removeTag(fileId: string, tag: string) {
-        return this.tagOperation(fileId, tag, 'ctx._source.tags.remove(ctx._source.tags.indexOf(params.tag))');
+        tag = tag.toLowerCase();
+        return this.tagOperation(fileId, tag, `
+            ctx._source.tags.remove(ctx._source.tags.indexOf(params.tag))
+        `);
     }
 
     public async toggleTag(fileId: string, tag: string) {
-        return this.tagOperation(fileId, tag, 'if (!ctx._source.tags.contains(params.tag)) { ctx._source.tags.add(params.tag) } else { ctx._source.tags.remove(ctx._source.tags.indexOf(params.tag)) }');
+        tag = tag.toLowerCase();
+        return this.tagOperation(fileId, tag, `
+            if (!ctx._source.tags.contains(params.tag)) { 
+                ctx._source.tags.add(params.tag) 
+            } else { 
+                ctx._source.tags.remove(ctx._source.tags.indexOf(params.tag)) 
+        }`);
     }
 
 
