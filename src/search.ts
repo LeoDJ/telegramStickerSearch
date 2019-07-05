@@ -106,6 +106,23 @@ export class Search {
         }
     }
 
+    public async addTag(fileId: string, tag: string) {
+        tag = tag.toLowerCase();
+        try {
+            let result = await this.client.update({
+                index: 'sticker',
+                type: '_doc',
+                id: fileId,
+                script: 'if (!ctx._source.tags.contains(tag)) { ctx._source.tags.add(tag) }',
+                params: {
+                    tag: tag
+                }
+            });
+        } catch (err) {
+            console.trace(err);
+        }
+    }
+
     public async removeTag(fileId: string, tag: string) {
         try {
             let result = await this.client.update({
