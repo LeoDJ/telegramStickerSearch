@@ -106,37 +106,38 @@ export class Search {
         }
     }
 
-    public async addTag(fileId: string, tag: string) {
+    public async tagOperation(fileId: string, tag: string, script: string) {
         tag = tag.toLowerCase();
+        let result;
         try {
-            let result = await this.client.update({
+            result = await this.client.update({
                 index: 'sticker',
-                type: '_doc',
                 id: fileId,
-                script: 'if (!ctx._source.tags.contains(tag)) { ctx._source.tags.add(tag) }',
-                params: {
-                    tag: tag
+                body: {
+                    script: {
+                        source: script,
+                        params: {
+                            tag: tag
+                        }
+                    }
                 }
             });
         } catch (err) {
             console.trace(err);
+            console.log(err.meta.body.error);
         }
     }
 
+    public async addTag(fileId: string, tag: string) {
+        return this.tagOperation(fileId, tag, 'if (!ctx._source.tags.contains(params.tag)) { ctx._source.tags.add(params.tag) }');
+    }
+
     public async removeTag(fileId: string, tag: string) {
-        try {
-            let result = await this.client.update({
-                index: 'sticker',
-                type: '_doc',
-                id: fileId,
-                script: 'ctx._source.tags.remove(tag)',
-                params: {
-                    tag: tag
-                }
-            });
-        } catch (err) {
-            console.trace(err);
-        }
+        return this.tagOperation(fileId, tag, 'ctx._source.tags.remove(ctx._source.tags.indexOf(params.tag))');
+    }
+
+    public async toggleTag(fileId: string, tag: string) {
+        return this.tagOperation(fileId, tag, 'if (!ctx._source.tags.contains(params.tag)) { ctx._source.tags.add(params.tag) } else { ctx._source.tags.remove(ctx._source.tags.indexOf(params.tag)) }');
     }
 
 
@@ -157,6 +158,7 @@ export class Search {
                         set_name: sticker.set_name,
                         file_id: sticker.file_id,
                         emoji: sticker.emoji,
+                        tags: [],
                         emoji_str: emojiAliases
                     }
                 });

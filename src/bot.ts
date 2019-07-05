@@ -40,13 +40,13 @@ bot.command('start', async (ctx) => {
 });
 
 let generateTaggingInline = async (stickerId: string): Promise<ExtraEditMessage> => {
-    let tags = await search.getStickerTags(stickerId);
+    let tags = await search.getStickerTags(stickerId) || [];
     let isNsfw = tags.indexOf('nsfw') > 0;
     let isFurry = tags.indexOf('furry') > 0;
     tags = tags.filter(t => t != 'furry' && t != 'nsfw');
     let inlineButtons = [[]];
-    inlineButtons[0].push(Markup.callbackButton('Furry: ' + isFurry ? '✅' : '❌', 'toggle_tag furry ' + stickerId));
-    inlineButtons[0].push(Markup.callbackButton('NSFW: ' + isNsfw ? '✅' : '❌', 'toggle_tag nsfw ' + stickerId));
+    inlineButtons[0].push(Markup.callbackButton('Furry: ' + (isFurry ? '✅' : '❌'), 'toggle_tag furry ' + stickerId));
+    inlineButtons[0].push(Markup.callbackButton('NSFW: ' + (isNsfw ? '✅' : '❌'), 'toggle_tag nsfw ' + stickerId));
 
     let tmp = [];
     let tagsPerLine = 3;
@@ -82,7 +82,8 @@ bot.on('sticker', async (ctx) => {
         console.log(await search.getStickerTags(stickerId));
     }
 
-    ctx.reply(msg, await generateTaggingInline(stickerId));
+    let reply = await ctx.reply(msg, await generateTaggingInline(stickerId));
+    // TODO: save message id for updating
 
 });
 
@@ -123,13 +124,16 @@ bot.on('callback_query', async (ctx) => {
     let args = ctx.callbackQuery.data.split(' '); // splits command (eg. 'remove_tag asdf 1241512')
     switch (args[0]) {
         case 'toggle_tag':
-            search.toggleTag(args[2], args[1]);
+            await search.toggleTag(args[2], args[1]);
             break;
         case 'remove_tag':
             // TODO: check if authorized to remove
-            search.removeTag(args[2], args[1]);
+            await search.removeTag(args[2], args[1]);
             break;
     }
+
+    // TODO: update tagging message
+
     console.log('received callback query:', ctx.callbackQuery);
 });
 
