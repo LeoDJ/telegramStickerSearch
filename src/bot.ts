@@ -18,7 +18,7 @@ const bot = new Telegraf(config.telegram.botToken, {
 const search = new Search();
 
 const stickerTaggingMessage = `To add new tags, simply type them separated by commas or spaces. 
-Use underscores for tags_containging_spaces. 
+Use underscores for tags_containging_spaces (30 chars max). 
 Click to toggle flag or remove a wrong tag.`
 
 bot.telegram.getMe().then((botInfo) => {
@@ -75,28 +75,41 @@ async function generateTaggingInline(stickerId: string, tags?: string[]): Promis
 }
 
 bot.on('sticker', async (ctx) => {
-    let stickerId = ctx.message.sticker.file_id;
+    let sticker = ctx.message.sticker;
+    let stickerId = sticker.file_id;
     console.log("received sticker", stickerId);
 
     // console.log(await ctx.telegram.getStickerSet(ctx.message.sticker.set_name));
     // ctx.reply(JSON.stringify(ctx.message.sticker, null, 4));
 
-    // TODO: categorize stickerpack first
+    if(! await search.stickerSetExists(sticker.set_name)) {
+        let stickerSet = await ctx.telegram.getStickerSet(sticker.set_name);
+        search.addStickerSet(stickerSet, ctx.chat.id);
+        
+        // index all stickers of pack
+        stickerSet.stickers.forEach(async (sticker, i) => {
+            await search.addSticker(sticker, ctx.chat.id, i);
+        });
 
-    let msg = '';
-    if (! await search.stickerExists(stickerId)) {
-        msg += `New untagged sticker found. Let's add some tags now.\n\n` + stickerTaggingMessage;
-        await search.addSticker(ctx.message.sticker);
-    } else {
-        msg += stickerTaggingMessage;
-        console.log(await search.getStickerTags(stickerId));
+        // TODO: set tagging logic and afterward switching to single sticker tagging
+
     }
-
+    else {
+        let msg = '';
+        if (! await search.stickerExists(stickerId)) {
+            msg += `New untagged sticker found. Let's add some tags now.\n\n` + stickerTaggingMessage;
+            await search.addSticker(ctx.message.sticker, ctx.chat.id);
+        } else {
+            msg += stickerTaggingMessage;
+            console.log(await search.getStickerTags(stickerId));
+        }
     
-    let reply = await ctx.reply(msg, await generateTaggingInline(stickerId));
-    search.setUserState(ctx.chat.id, UserState.TaggingSticker, {stickerId: stickerId, messageId: reply.message_id});
-    // TODO: save message id for updating
-
+        let extra: ExtraEditMessage  = await generateTaggingInline(stickerId);
+        extra.reply_to_message_id = ctx.message.message_id;
+        let reply = await ctx.reply(msg, extra);
+        search.setUserState(ctx.chat.id, UserState.TaggingSticker, {stickerId: stickerId, messageId: reply.message_id});
+        // TODO: save message id for updating
+    }
 });
 
 // have to delay, because Elasticsearch is not instant updating
@@ -131,6 +144,7 @@ async function handleTaggingInput(input: string, stickerId: string) {
     return await search.addTags(stickerId, tags);
 }
 
+// handle incoming messages that are not commands
 bot.on('message', async (ctx) => {
     let cid = ctx.chat.id;
 
@@ -143,6 +157,7 @@ bot.on('message', async (ctx) => {
     }
 });
 
+// process inline search result
 bot.on('inline_query', async (ctx) => {
     let cid = ctx.from.id;
     let query = ctx.inlineQuery.query;
@@ -159,7 +174,7 @@ bot.on('inline_query', async (ctx) => {
             }
         );
     } else {
-        // show register prompt
+        // show register prompt, if user hasn't registered yet
         return ctx.answerInlineQuery(
             [],
             {
@@ -171,11 +186,13 @@ bot.on('inline_query', async (ctx) => {
     }
 });
 
+// generate statistics based on stickers that get sent via the inline bot (so most used stickers stand at the beginning)
 bot.on('chosen_inline_result', async (ctx) => {
     // TODO: save sticker usage for promoting often used stickers
     console.log("chosen inline result", ctx.chosenInlineResult);
 });
 
+// process responses from inline buttons in chat (tagging interface)
 bot.on('callback_query', async (ctx) => {
     let args = ctx.callbackQuery.data.split(' '); // splits command (eg. 'remove_tag asdf 1241512')
     let cmd = args[0], tag = args[1], stickerId = args[2];

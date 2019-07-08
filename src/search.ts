@@ -174,7 +174,7 @@ export class Search {
                 ctx._source.tags.addAll(params.tag);
                 ctx._source.tags = ctx._source.tags.stream().distinct().collect(Collectors.toList());
             }
-        `); 
+        `);
     }
 
     public async removeTag(fileId: string, tag: string) {
@@ -195,7 +195,7 @@ export class Search {
     }
 
 
-    public async addSticker(sticker: TT.Sticker) {
+    public async addSticker(sticker: TT.Sticker, addedByUserId: number, setPosition?: number) {
         console.log(emojiToTelegramUnicode(sticker.emoji));
 
         if (! await this.stickerExists(sticker.file_id)) {
@@ -212,6 +212,8 @@ export class Search {
                         set_name: sticker.set_name,
                         file_id: sticker.file_id,
                         emoji: sticker.emoji,
+                        added_by: addedByUserId,
+                        set_position: setPosition,
                         tags: [],
                         emoji_str: emojiAliases
                     }
@@ -239,4 +241,43 @@ export class Search {
         );
 
     }
+
+    public async addStickerSet(stickerSet: TT.StickerSet, addedByUserId: number) {
+        console.log("Adding new sticker set " + stickerSet.name);
+
+        this.client.index({
+            index: 'sticker_set',
+            type: '_doc',
+            id: stickerSet.name,
+            body: {
+                set_name: stickerSet.name,
+                set_title: stickerSet.title,
+                indexed_at: Date.now(),
+                added_by: addedByUserId,
+                sticker_count: stickerSet.stickers.length,
+                title_sticker: stickerSet.stickers[0].file_id
+            }
+        });
+    }
+
+    public async stickerSetExists(setName: string): Promise<boolean> {
+        let result = this.getStickerSet(setName);
+        return (result != null);
+    }
+
+    public async getStickerSet(setName: string): Promise<object> {
+        try {
+            let result = await this.client.get({
+                index: 'sticker_set',
+                id: setName
+            });
+            console.log(result);
+            // return result.body.hits.hits[0]._source.tags;
+        }
+        catch (e) {
+            // console.trace(e);
+            return [];
+        }
+    }
+
 }
