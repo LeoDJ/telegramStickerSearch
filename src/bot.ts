@@ -193,9 +193,10 @@ bot.on('callback_query', async (ctx) => {
             break;
     }
 
-
-    await updateTaggingMessage(ctx.callbackQuery.message.chat.id, ctx.callbackQuery.message.message_id, stickerId, result.body.get._source.tags);
-    ctx.answerCbQuery(cbMsg);
+    if (result) {
+        await updateTaggingMessage(ctx.callbackQuery.message.chat.id, ctx.callbackQuery.message.message_id, stickerId, result.body.get._source.tags);
+        ctx.answerCbQuery(cbMsg);
+    }
     
     // console.log('received callback query:', ctx.callbackQuery);
     // console.log('CTX', ctx.message);
