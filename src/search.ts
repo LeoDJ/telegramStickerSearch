@@ -142,7 +142,11 @@ export class Search {
                 _source: true,
                 body: {
                     script: {
-                        source: script,
+                        source: `
+                            if(ctx._source?.tags == null) {
+                                ctx._source.tags = []
+                            }
+                            ${script}`,
                         params: {
                             tag: tag
                         }
@@ -166,8 +170,10 @@ export class Search {
     public async addTags(fileId: string, tags: string[]) {
         tags = tags.map(t => t.toLowerCase());
         return this.tagOperation(fileId, tags, `
-            ctx._source.tags.addAll(params.tag);
-            ctx._source.tags = ctx._source.tags.stream().distinct().collect(Collectors.toList());
+            if(ctx._source?.tags != null) {
+                ctx._source.tags.addAll(params.tag);
+                ctx._source.tags = ctx._source.tags.stream().distinct().collect(Collectors.toList());
+            }
         `); 
     }
 
