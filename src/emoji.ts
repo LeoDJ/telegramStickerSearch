@@ -17,7 +17,8 @@ export const emojiToTelegramUnicode = (input) => {
 }
 
 export const emojiToUnicode = (input) => {
-    return emojiToUnicodeRaw(input).split(' ').map(val => parseInt(val).toString(16)).join(' ')
+    // console.log("emoji to unicode", input, emojiToUnicodeRaw(input)), String(emojiToUnicodeRaw(input)).split(' ');
+    return String(emojiToUnicodeRaw(input)).split(' ').map(val => parseInt(val).toString(16)).join(' ')
 }
 
 export const emojiToUnicodeRaw = (input) => {

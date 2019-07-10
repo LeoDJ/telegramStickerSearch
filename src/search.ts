@@ -2,7 +2,7 @@ import * as es from '@elastic/elasticsearch';
 import { Config } from "./config";
 let config: Config = require('../config.json');
 import * as TT from "telegram-typings";
-import { UserState } from './models/UserState';
+import { UserState, UserStateData } from './models/UserState';
 import { InlineQueryResult } from 'telegraf/typings/telegram-types';
 import { emojiToUnicode, emojiStringToArray, emojiToTelegramUnicode } from './emoji';
 let emojiData = require('../data/emoji_autocomplete.json');
@@ -57,7 +57,7 @@ export class Search {
             let user = result.body.hits.hits[0]._source;
             return {
                 userState: user.user_state,
-                userStateData: user.user_state_data
+                userStateData: <UserStateData>user.user_state_data
             }
         }
         catch (e) {
@@ -66,7 +66,7 @@ export class Search {
         }
     }
 
-    public async setUserState(userId: number, userState: UserState, userStateData?: object) {
+    public async setUserState(userId: number, userState: UserState, userStateData?: UserStateData) {
         if (userStateData == undefined) {
             userStateData = {};
         }
@@ -147,77 +147,107 @@ export class Search {
                                 ctx._source.tags = []
                             }
                             ${script}`,
-                        params: {
-                            tag: tag
+                            params: {
+                                tag: tag
+                            }
                         }
                     }
-                }
-            });
-        } catch (err) {
-            console.trace(err);
-            console.log(err.meta.body.error);
+                });
+            } catch (err) {
+                console.trace(err);
+                console.log(err.meta.body.error);
+            }
         }
-    }
-
-    public async addTag(fileId: string, tag: string) {
-        tag = tag.toLowerCase();
-        return this.tagOperation(fileId, tag, `
+        
+        public async addTag(fileId: string, tag: string) {
+            tag = tag.toLowerCase();
+            return this.tagOperation(fileId, tag, `
             if (!ctx._source.tags.contains(params.tag)) { 
                 ctx._source.tags.add(params.tag) 
-        }`);
-    }
-
-    public async addTags(fileId: string, tags: string[]) {
-        tags = tags.map(t => t.toLowerCase());
-        return this.tagOperation(fileId, tags, `
+            }`);
+        }
+        
+        public async addTags(fileId: string, tags: string[]) {
+            tags = tags.map(t => t.toLowerCase());
+            return this.tagOperation(fileId, tags, `
             if(ctx._source?.tags != null) {
                 ctx._source.tags.addAll(params.tag);
                 ctx._source.tags = ctx._source.tags.stream().distinct().collect(Collectors.toList());
             }
-        `);
-    }
-
-    public async removeTag(fileId: string, tag: string) {
-        tag = tag.toLowerCase();
-        return this.tagOperation(fileId, tag, `
+            `);
+        }
+        
+        public async removeTag(fileId: string, tag: string) {
+            tag = tag.toLowerCase();
+            return this.tagOperation(fileId, tag, `
             ctx._source.tags.remove(ctx._source.tags.indexOf(params.tag))
-        `);
-    }
-
-    public async toggleTag(fileId: string, tag: string) {
-        tag = tag.toLowerCase();
-        return this.tagOperation(fileId, tag, `
+            `);
+        }
+        
+        public async toggleTag(fileId: string, tag: string) {
+            tag = tag.toLowerCase();
+            return this.tagOperation(fileId, tag, `
             if (!ctx._source.tags.contains(params.tag)) { 
                 ctx._source.tags.add(params.tag) 
             } else { 
                 ctx._source.tags.remove(ctx._source.tags.indexOf(params.tag)) 
-        }`);
-    }
+            }`);
+        }
 
+        public async getStickerSetTags(setName: string): Promise<string[]> {
+            // TODO: implement
+            return [];
 
-    public async addSticker(sticker: TT.Sticker, addedByUserId: number, setPosition?: number) {
-        console.log(emojiToTelegramUnicode(sticker.emoji));
+        }
+        
+        public async setTagOperation(setName: string, tag: string[], script: string) {
+            // TODO: implement
+
+        }
+        
+        public async addSetTags(setName: string, tags: string[]) {
+            // TODO: implement
+            console.log("add set tags", tags);
+            return {body: {get: {_source: {tags: ['a_tag']}}}};
+        }
+        
+        public async removeSetTag(setName: string, tag: string) {
+            // TODO: implement
+            console.log("remove set tag", tag);
+            return {body: {get: {_source: {tags: ['a_tag']}}}};
+        }
+        
+        public async toggleSetTag(setName: string, tag: string) {
+            // TODO: implement
+            console.log("toggle set tag", tag);
+            return {body: {get: {_source: {tags: ['a_tag']}}}};
+        }
+
+        
+        
+        public async addSticker(sticker: TT.Sticker, addedByUserId: number, setPosition?: number) {
+            // console.log(emojiToTelegramUnicode(sticker.emoji));
 
         if (! await this.stickerExists(sticker.file_id)) {
-            console.log("Adding new sticker " + sticker.file_id);
+            console.log("Adding new sticker", sticker.file_id, sticker.emoji, sticker.set_name);
 
             let emojiAliases = emojiData[emojiToTelegramUnicode(sticker.emoji)];
-            console.log(sticker.emoji, emojiAliases),
+            // console.log(sticker.emoji, emojiAliases),
 
-                this.client.index({
-                    index: 'sticker',
-                    type: '_doc',
-                    id: sticker.file_id,
-                    body: {
-                        set_name: sticker.set_name,
-                        file_id: sticker.file_id,
-                        emoji: sticker.emoji,
-                        added_by: addedByUserId,
-                        set_position: setPosition,
-                        tags: [],
-                        emoji_str: emojiAliases
-                    }
-                });
+            this.client.index({
+                index: 'sticker',
+                type: '_doc',
+                id: sticker.file_id,
+                body: {
+                    set_name: sticker.set_name,
+                    file_id: sticker.file_id,
+                    emoji: sticker.emoji,
+                    added_by: addedByUserId,
+                    set_position: setPosition,
+                    tags: [],
+                    emoji_str: emojiAliases
+                }
+            });
         }
     }
 
@@ -261,7 +291,8 @@ export class Search {
     }
 
     public async stickerSetExists(setName: string): Promise<boolean> {
-        let result = this.getStickerSet(setName);
+        let result = await this.getStickerSet(setName);
+        // console.log("sticker set exists", setName, result, result != null);
         return (result != null);
     }
 
@@ -271,12 +302,16 @@ export class Search {
                 index: 'sticker_set',
                 id: setName
             });
-            console.log(result);
-            // return result.body.hits.hits[0]._source.tags;
+            // console.log(result);
+            if (result.body.found) {
+                return result.body._source;
+            } else {
+                return null;
+            }
         }
         catch (e) {
             // console.trace(e);
-            return [];
+            return null;
         }
     }
 
