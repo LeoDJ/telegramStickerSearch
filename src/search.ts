@@ -3,6 +3,7 @@ import { Config } from "./config";
 let config: Config = require('../config.json');
 import * as TT from "telegram-typings";
 import { UserState, UserStateData } from './models/UserState';
+import { StickerTag, StickerTagType } from './models/StickerTag';
 import { InlineQueryResult } from 'telegraf/typings/telegram-types';
 import { emojiToUnicode, emojiStringToArray, emojiToTelegramUnicode } from './emoji';
 let emojiData = require('../data/emoji_autocomplete.json');
@@ -152,7 +153,7 @@ export class Search {
         }
     }
 
-    public async getStickerTags(fileId: string): Promise<string[]> {
+    public async getStickerTags(fileId: string): Promise<StickerTag[]> {
         try {
             let result = await this.client.search({
                 index: 'sticker',
@@ -163,12 +164,12 @@ export class Search {
             return result.body.hits.hits[0]._source.tags;
         }
         catch (e) {
-            // console.trace(e);
+            // consol8e.trace(e);
             return [];
         }
     }
 
-    public async tagOperation(fileId: string, tag: string | string[], script: string) {
+    public async tagOperation(fileId: string, tag: StickerTag | StickerTag[], script: string) {
         let result;
         try {
             return await this.client.update({
@@ -179,7 +180,7 @@ export class Search {
                     script: {
                         source: `
                             if(ctx._source?.tags == null) {
-                                ctx._source.tags = []
+                                ctx._source.tags = [];
                             }
                             ${script}`,
                             params: {
@@ -194,38 +195,41 @@ export class Search {
         }
     }
     
-    public async addTag(fileId: string, tag: string) {
-        tag = tag.toLowerCase();
-        return this.tagOperation(fileId, tag, `
-        if (!ctx._source.tags.contains(params.tag)) { 
-            ctx._source.tags.add(params.tag) 
-        }`);
-    }
-    
-    public async addTags(fileId: string, tags: string[]) {
+    public async addTags(fileId: string, tags: string[], user: number) {
         tags = tags.map(t => t.toLowerCase());
-        return this.tagOperation(fileId, tags, `
+        let stickerTags: StickerTag[] = tags.map(t => <StickerTag>{tag: t, type: StickerTagType.UserAdded, added_by: user, added_at: Date.now()});
+
+        return this.tagOperation(fileId, stickerTags, `
         if(ctx._source?.tags != null) {
-            ctx._source.tags.addAll(params.tag);
-            ctx._source.tags = ctx._source.tags.stream().distinct().collect(Collectors.toList());
+            def tags = ctx._source.tags.stream().map(t -> t.tag).collect(Collectors.toList());
+
+            for(t in params.tag) {
+                if(!tags.contains(t.tag)) {
+                    ctx._source.tags.add(t);
+                }
+            }
         }
         `);
     }
     
-    public async removeTag(fileId: string, tag: string) {
+    //TODO: check, if user is privileged to remove the tag
+    public async removeTag(fileId: string, tag: string, user: number) {
         tag = tag.toLowerCase();
-        return this.tagOperation(fileId, tag, `
-        ctx._source.tags.remove(ctx._source.tags.indexOf(params.tag))
+        return this.tagOperation(fileId, <StickerTag>{tag: tag, type: StickerTagType.UserAdded, added_by: user}, `
+        ctx._source.tags = ctx._source.tags.stream().filter(t -> t.tag != params.tag.tag).collect(Collectors.toList());
         `);
     }
     
-    public async toggleTag(fileId: string, tag: string) {
+    //TODO: check, if user is privileged to remove the tag
+    public async toggleTag(fileId: string, tag: string, user: number) {
         tag = tag.toLowerCase();
-        return this.tagOperation(fileId, tag, `
-        if (!ctx._source.tags.contains(params.tag)) { 
-            ctx._source.tags.add(params.tag) 
+        let stickerTag = <StickerTag>{tag: tag, type: StickerTagType.UserAdded, added_by: user, added_at: Date.now()}
+        return this.tagOperation(fileId, stickerTag, `
+        def tags = ctx._source.tags.stream().map(t -> t.tag).collect(Collectors.toList());
+        if (!tags.contains(params.tag.tag)) { 
+            ctx._source.tags.add(params.tag);
         } else { 
-            ctx._source.tags.remove(ctx._source.tags.indexOf(params.tag)) 
+            ctx._source.tags = ctx._source.tags.stream().filter(t -> t.tag != params.tag.tag).collect(Collectors.toList());
         }`);
     }
 

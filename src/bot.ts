@@ -5,6 +5,7 @@ import { Search } from './search';
 import * as HttpsProxyAgent from 'https-proxy-agent';
 import { ExtraEditMessage, InlineKeyboardMarkup, StickerSet } from "telegraf/typings/telegram-types";
 import { UserState } from "./models/UserState";
+import { StickerTag } from './models/StickerTag';
 import { emojiStringToArray, emojiToUnicode, emojiToUnicodeRaw } from "./emoji";
 
 const Telegraf = <TelegrafConstructor>require('telegraf');
@@ -60,7 +61,7 @@ bot.command('done', async (ctx) => {
 
 const tagsPerLine = 3;
 
-async function generateTaggingInline(identifier: string, target: "sticker" | "stickerSet", tags?: string[]): Promise<ExtraEditMessage> {
+async function generateTaggingInline(identifier: string, target: "sticker" | "stickerSet", tags?: StickerTag[]): Promise<ExtraEditMessage> {
     if (tags == undefined) {
         if (target == "sticker") {
             tags = await search.getStickerTags(identifier) || [];
@@ -68,6 +69,7 @@ async function generateTaggingInline(identifier: string, target: "sticker" | "st
             tags = await search.getStickerSetTags(identifier) || [];
         }
     }
+    tags = tags.map(t => t.tag);
     let inlineButtons = [[]];
     let cmdModifier, postfix;
     if (target == "sticker") {
@@ -204,12 +206,12 @@ async function updateTaggingMessage(chatId: number, messageId: number, identifie
     });
 }
 
-async function handleTaggingInput(input: string, stickerId: string) {
+async function handleTaggingInput(input: string, stickerId: string, userId: number) {
     input.replace('/tag', '');
     let tags = input.split(/[, ]+/);
     tags = tags.map(t => t.substring(0, 30)); // max 64 chars for callback data (31 for sticker id, 3 for control = 30 for tag name)
     // console.log(tags);
-    return await search.addTags(stickerId, tags);
+    return await search.addTags(stickerId, tags, userId);
 }
 
 async function handleSetTaggingInput(input: string, setName: string) {
@@ -226,7 +228,7 @@ bot.on('message', async (ctx) => {
     let sd = state.userStateData;
     switch (state.userState) {
         case UserState.TaggingSticker: {
-            let result = await handleTaggingInput(ctx.message.text, sd.stickerId);
+            let result = await handleTaggingInput(ctx.message.text, sd.stickerId, ctx.from.id);
             updateTaggingMessage(cid, sd.messageId, sd.stickerId, "sticker", result.body.get._source.tags, stickerTaggingMessage);
             break;
         }
@@ -296,12 +298,12 @@ bot.on('callback_query', async (ctx) => {
     // commmands get set in generateTaggingInline()
     switch (cmd) {
         case '^':
-            result = await search.toggleTag(stickerId, tag);
+            result = await search.toggleTag(stickerId, tag, ctx.from.id);
             cbMsg = `Toggled flag '${tag}'`;
             break;
         case '-':
             // TODO: check if authorized to remove
-            result = await search.removeTag(stickerId, tag);
+            result = await search.removeTag(stickerId, tag, ctx.from.id);
             cbMsg = `Removed tag '${tag}'`;
             break;
     }
