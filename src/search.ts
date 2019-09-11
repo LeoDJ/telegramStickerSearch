@@ -29,6 +29,10 @@ export class Search {
         });
     }
 
+    // ######################################################################################
+    // ######################    User Stuff    ##############################################
+    // ######################################################################################
+
     public async userExists(userId: number): Promise<boolean> {
         try {
             let result = await this.client.search({
@@ -99,6 +103,37 @@ export class Search {
         this.initUser(user.id);
     }
 
+    // ######################################################################################
+    // ######################    Sticker Stuff    ###########################################
+    // ######################################################################################
+
+    public async addSticker(sticker: TT.Sticker, addedByUserId: number, setPosition?: number) {
+        // console.log(emojiToTelegramUnicode(sticker.emoji));
+
+        if (! await this.stickerExists(sticker.file_id)) {
+            console.log("Adding new sticker", sticker.file_id, sticker.emoji, sticker.set_name);
+
+            let emojiAliases = emojiData[emojiToTelegramUnicode(sticker.emoji)];
+            // console.log(sticker.emoji, emojiAliases),
+
+            this.client.index({
+                index: 'sticker',
+                type: '_doc',
+                id: sticker.file_id,
+                body: {
+                    set_name: sticker.set_name,
+                    file_id: sticker.file_id,
+                    emoji: sticker.emoji,
+                    added_by: addedByUserId,
+                    set_position: setPosition,
+                    is_animated: sticker.is_animated,
+                    tags: [],
+                    emoji_str: emojiAliases
+                }
+            });
+        }
+    }
+
     public async stickerExists(fileId: string): Promise<boolean> {
         let result: any;
         try {
@@ -153,124 +188,50 @@ export class Search {
                         }
                     }
                 });
-            } catch (err) {
-                console.trace(err);
-                console.log(err.meta.body.error);
-            }
-        }
-        
-        public async addTag(fileId: string, tag: string) {
-            tag = tag.toLowerCase();
-            return this.tagOperation(fileId, tag, `
-            if (!ctx._source.tags.contains(params.tag)) { 
-                ctx._source.tags.add(params.tag) 
-            }`);
-        }
-        
-        public async addTags(fileId: string, tags: string[]) {
-            tags = tags.map(t => t.toLowerCase());
-            return this.tagOperation(fileId, tags, `
-            if(ctx._source?.tags != null) {
-                ctx._source.tags.addAll(params.tag);
-                ctx._source.tags = ctx._source.tags.stream().distinct().collect(Collectors.toList());
-            }
-            `);
-        }
-        
-        public async removeTag(fileId: string, tag: string) {
-            tag = tag.toLowerCase();
-            return this.tagOperation(fileId, tag, `
-            ctx._source.tags.remove(ctx._source.tags.indexOf(params.tag))
-            `);
-        }
-        
-        public async toggleTag(fileId: string, tag: string) {
-            tag = tag.toLowerCase();
-            return this.tagOperation(fileId, tag, `
-            if (!ctx._source.tags.contains(params.tag)) { 
-                ctx._source.tags.add(params.tag) 
-            } else { 
-                ctx._source.tags.remove(ctx._source.tags.indexOf(params.tag)) 
-            }`);
-        }
-
-        public async getStickerSetTags(setName: string): Promise<string[]> {
-            // TODO: implement
-            return [];
-
-        }
-        
-        public async setTagOperation(setName: string, tag: string[], script: string) {
-            // TODO: implement
-
-        }
-        
-        public async addSetTags(setName: string, tags: string[]) {
-            // TODO: implement
-            console.log("add set tags", tags);
-            return {body: {get: {_source: {tags: ['a_tag']}}}};
-        }
-        
-        public async removeSetTag(setName: string, tag: string) {
-            // TODO: implement
-            console.log("remove set tag", tag);
-            return {body: {get: {_source: {tags: ['a_tag']}}}};
-        }
-        
-        public async toggleSetTag(setName: string, tag: string) {
-            // TODO: implement
-            console.log("toggle set tag", tag);
-            return {body: {get: {_source: {tags: ['a_tag']}}}};
-        }
-
-        
-        
-        public async addSticker(sticker: TT.Sticker, addedByUserId: number, setPosition?: number) {
-            // console.log(emojiToTelegramUnicode(sticker.emoji));
-
-        if (! await this.stickerExists(sticker.file_id)) {
-            console.log("Adding new sticker", sticker.file_id, sticker.emoji, sticker.set_name);
-
-            let emojiAliases = emojiData[emojiToTelegramUnicode(sticker.emoji)];
-            // console.log(sticker.emoji, emojiAliases),
-
-            this.client.index({
-                index: 'sticker',
-                type: '_doc',
-                id: sticker.file_id,
-                body: {
-                    set_name: sticker.set_name,
-                    file_id: sticker.file_id,
-                    emoji: sticker.emoji,
-                    added_by: addedByUserId,
-                    set_position: setPosition,
-                    tags: [],
-                    emoji_str: emojiAliases
-                }
-            });
+        } catch (err) {
+            console.trace(err);
+            console.log(err.meta.body.error);
         }
     }
-
-    public async searchSticker(query: string, userId: number, offset: number = 0): Promise<InlineQueryResult[]> {
-        let result = await this.client.search({
-            index: 'sticker',
-            from: offset,
-            size: 50, // telegram inline expects a maximum of 50 results
-            body: {
-
-            }
-        })
-        console.log("ES sticker search result", result.body, result.body.hits.hits);
-
-        return result.body.hits.hits.map(res =>
-            <TT.InlineQueryResultCachedSticker>{
-                type: "sticker",
-                id: res._source.file_id,
-                sticker_file_id: res._source.file_id
-            }
-        );
-
+    
+    public async addTag(fileId: string, tag: string) {
+        tag = tag.toLowerCase();
+        return this.tagOperation(fileId, tag, `
+        if (!ctx._source.tags.contains(params.tag)) { 
+            ctx._source.tags.add(params.tag) 
+        }`);
     }
+    
+    public async addTags(fileId: string, tags: string[]) {
+        tags = tags.map(t => t.toLowerCase());
+        return this.tagOperation(fileId, tags, `
+        if(ctx._source?.tags != null) {
+            ctx._source.tags.addAll(params.tag);
+            ctx._source.tags = ctx._source.tags.stream().distinct().collect(Collectors.toList());
+        }
+        `);
+    }
+    
+    public async removeTag(fileId: string, tag: string) {
+        tag = tag.toLowerCase();
+        return this.tagOperation(fileId, tag, `
+        ctx._source.tags.remove(ctx._source.tags.indexOf(params.tag))
+        `);
+    }
+    
+    public async toggleTag(fileId: string, tag: string) {
+        tag = tag.toLowerCase();
+        return this.tagOperation(fileId, tag, `
+        if (!ctx._source.tags.contains(params.tag)) { 
+            ctx._source.tags.add(params.tag) 
+        } else { 
+            ctx._source.tags.remove(ctx._source.tags.indexOf(params.tag)) 
+        }`);
+    }
+
+    // ######################################################################################
+    // ######################    Sticker Set Stuff    #######################################
+    // ######################################################################################
 
     public async addStickerSet(stickerSet: TT.StickerSet, addedByUserId: number) {
         console.log("Adding new sticker set " + stickerSet.name);
@@ -313,6 +274,60 @@ export class Search {
             // console.trace(e);
             return null;
         }
+    }
+
+    public async getStickerSetTags(setName: string): Promise<string[]> {
+        // TODO: implement
+        return [];
+
+    }
+    
+    public async setTagOperation(setName: string, tag: string[], script: string) {
+        // TODO: implement
+
+    }
+    
+    public async addSetTags(setName: string, tags: string[]) {
+        // TODO: implement
+        console.log("add set tags", tags);
+        return {body: {get: {_source: {tags: ['a_tag']}}}};
+    }
+    
+    public async removeSetTag(setName: string, tag: string) {
+        // TODO: implement
+        console.log("remove set tag", tag);
+        return {body: {get: {_source: {tags: ['a_tag']}}}};
+    }
+    
+    public async toggleSetTag(setName: string, tag: string) {
+        // TODO: implement
+        console.log("toggle set tag", tag);
+        return {body: {get: {_source: {tags: ['a_tag']}}}};
+    }
+
+    // ######################################################################################
+    // ######################    Search Stuff    ############################################
+    // ######################################################################################
+
+    public async searchSticker(query: string, userId: number, offset: number = 0): Promise<InlineQueryResult[]> {
+        let result = await this.client.search({
+            index: 'sticker',
+            from: offset,
+            size: 50, // telegram inline expects a maximum of 50 results
+            body: {
+
+            }
+        })
+        console.log("ES sticker search result", result.body, result.body.hits.hits);
+
+        return result.body.hits.hits.map(res =>
+            <TT.InlineQueryResultCachedSticker>{
+                type: "sticker",
+                id: res._source.file_id,
+                sticker_file_id: res._source.file_id
+            }
+        );
+
     }
 
 }
