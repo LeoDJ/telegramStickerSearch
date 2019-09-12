@@ -127,6 +127,7 @@ export class Search {
                     file_id: sticker.file_id,
                     emoji: sticker.emoji,
                     added_by: addedByUserId,
+                    added_at: new Date(),
                     set_position: setPosition,
                     is_animated: sticker.is_animated,
                     tags: [],
@@ -142,13 +143,15 @@ export class Search {
 
             await this.addTags(sticker.file_id, [sticker.emoji], -1, StickerTagType.Emoji);
             
-            let emojiAliasTags = [
-                emojiAliases.name, 
-                emojiAliases.alpha_code, 
-                emojiAliases.aliases
-            ].map(e => e.replace(/:/g,'').replace(/ /g, '_'))
-            .filter((e, i, self) => i === self.indexOf(e) && e != ''); // deduplicate array and remove empty strings
-            await this.addTags(sticker.file_id, emojiAliasTags, -1, StickerTagType.EmojiAlias);
+            if(emojiAliases) {
+                let emojiAliasTags = [
+                    emojiAliases.name, 
+                    emojiAliases.alpha_code, 
+                    emojiAliases.aliases
+                ].map(e => e.replace(/:/g,'').replace(/ /g, '_'))
+                .filter((e, i, self) => i === self.indexOf(e) && e != ''); // deduplicate array and remove empty strings
+                await this.addTags(sticker.file_id, emojiAliasTags, -1, StickerTagType.EmojiAlias);
+            }
         }
     }
 
@@ -214,7 +217,7 @@ export class Search {
     
     public async addTags(fileId: string, tags: string[], user: number, type: StickerTagType = StickerTagType.UserAdded) {
         tags = tags.map(t => t.toLowerCase());
-        let stickerTags: StickerTag[] = tags.map(t => <StickerTag>{tag: t, type: type, added_by: user, added_at: Date.now()});
+        let stickerTags: StickerTag[] = tags.map(t => <StickerTag>{tag: t, type: type, added_by: user, added_at: new Date()});
 
         return this.tagOperation(fileId, stickerTags, `
         if(ctx._source?.tags != null) {
@@ -240,7 +243,7 @@ export class Search {
     //TODO: check, if user is privileged to remove the tag
     public async toggleTag(fileId: string, tag: string, user: number) {
         tag = tag.toLowerCase();
-        let stickerTag = <StickerTag>{tag: tag, type: StickerTagType.UserAdded, added_by: user, added_at: Date.now()}
+        let stickerTag = <StickerTag>{tag: tag, type: StickerTagType.UserAdded, added_by: user, added_at: new Date()}
         return this.tagOperation(fileId, stickerTag, `
         def tags = ctx._source.tags.stream().map(t -> t.tag).collect(Collectors.toList());
         if (!tags.contains(params.tag.tag)) { 
@@ -264,7 +267,7 @@ export class Search {
             body: {
                 set_name: stickerSet.name,
                 set_title: stickerSet.title,
-                indexed_at: Date.now(),
+                indexed_at: new Date(),
                 added_by: addedByUserId,
                 sticker_count: stickerSet.stickers.length,
                 title_sticker: stickerSet.stickers[0].file_id
@@ -331,12 +334,26 @@ export class Search {
     // ######################################################################################
 
     public async searchSticker(query: string, userId: number, offset: number = 0): Promise<InlineQueryResult[]> {
+        if(!query) {
+            query = '*';
+        }
         let result = await this.client.search({
             index: 'sticker',
             from: offset,
             size: 50, // telegram inline expects a maximum of 50 results
             body: {
-
+                query: {
+                    simple_query_string: {
+                        query: query,
+                        fields: ['tags.tag'],
+                        default_operator: 'and'
+                    }
+                },
+                sort: [
+                    'set_name.keyword',
+                    'set_position',
+                    {added_at: 'desc'},
+                ]
             }
         })
         console.log("ES sticker search result", result.body, result.body.hits.hits);

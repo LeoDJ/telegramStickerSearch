@@ -12,5 +12,5 @@ export type StickerTag = {
     tag: string,
     type: StickerTagType,
     added_by: number,       //user id
-    added_at: number
+    added_at: Date
 }

@@ -248,15 +248,20 @@ bot.on('inline_query', async (ctx) => {
     if (await search.userExists(cid)) {
         // search foo
         let results = await search.searchSticker(query, cid, +ctx.inlineQuery.offset);
-        return ctx.answerInlineQuery(
-            results,
-            {
-                cache_time: 5,
-                is_personal: true,
-                // only provide next offset, when there are (probably) more data to query (TODO: check actual ES query result count here)
-                next_offset: (results.length == 50) ? (ctx.inlineQuery.offset + 50) : ""
-            }
-        );
+        try {
+            return ctx.answerInlineQuery(
+                results,
+                {
+                    cache_time: 5,
+                    is_personal: true,
+                    // only provide next offset, when there are (probably) more data to query (TODO: check actual ES query result count here)
+                    next_offset: (results.length == 50) ? (ctx.inlineQuery.offset + 50) : ""
+                }
+            );
+        }
+        catch(e) {
+            console.trace(e);
+        }
     } else {
         // show register prompt, if user hasn't registered yet
         return ctx.answerInlineQuery(
