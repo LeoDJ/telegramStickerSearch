@@ -22,7 +22,7 @@ const search = new Search();
 function getPackTaggingMessage(title: string) {
     return `** Currently tagging sticker set ${title} **
   
-Please categorize the complete set, if it contains only one Furry/NSFW you should still mark it as such.
+Please categorize the complete set, if it contains only one Furry/NSFW sticker, please mark it as such.
 You can also add set tags that apply to all stickers in the set. Note that the set name is already tagged.
 `;
 }
@@ -61,15 +61,15 @@ bot.command('done', async (ctx) => {
 
 const tagsPerLine = 3;
 
-async function generateTaggingInline(identifier: string, target: "sticker" | "stickerSet", tags?: StickerTag[]): Promise<ExtraEditMessage> {
-    if (tags == undefined) {
+async function generateTaggingInline(identifier: string, target: "sticker" | "stickerSet", stickerTags?: StickerTag[]): Promise<ExtraEditMessage> {
+    if (stickerTags == undefined) {
         if (target == "sticker") {
-            tags = await search.getStickerTags(identifier) || [];
+            stickerTags = await search.getStickerTags(identifier) || [];
         } else if (target == "stickerSet") {
-            tags = await search.getStickerSetTags(identifier) || [];
+            stickerTags = await search.getStickerSetTags(identifier) || [];
         }
     }
-    tags = tags.map(t => t.tag);
+    let tags: string[] = stickerTags.map(t => t.tag);
     let inlineButtons = [[]];
     let cmdModifier, postfix;
     if (target == "sticker") {

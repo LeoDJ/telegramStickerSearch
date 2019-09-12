@@ -1,5 +1,9 @@
 export enum StickerTagType {
     UserAdded = 'user',
+    UserAddedSet = 'set_set',
+    Emoji = 'emoji',
+    EmojiAlias = 'emoji_alias',
+    Metadata = 'metadata',
     OCR = 'ocr',
     SetName = 'set_name'
 }

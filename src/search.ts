@@ -4,6 +4,7 @@ let config: Config = require('../config.json');
 import * as TT from "telegram-typings";
 import { UserState, UserStateData } from './models/UserState';
 import { StickerTag, StickerTagType } from './models/StickerTag';
+import { EmojiAlias } from './models/EmojiAlias';
 import { InlineQueryResult } from 'telegraf/typings/telegram-types';
 import { emojiToUnicode, emojiStringToArray, emojiToTelegramUnicode } from './emoji';
 let emojiData = require('../data/emoji_autocomplete.json');
@@ -114,10 +115,10 @@ export class Search {
         if (! await this.stickerExists(sticker.file_id)) {
             console.log("Adding new sticker", sticker.file_id, sticker.emoji, sticker.set_name);
 
-            let emojiAliases = emojiData[emojiToTelegramUnicode(sticker.emoji)];
+            let emojiAliases: EmojiAlias = emojiData[emojiToTelegramUnicode(sticker.emoji)];
             // console.log(sticker.emoji, emojiAliases),
 
-            this.client.index({
+            await this.client.index({
                 index: 'sticker',
                 type: '_doc',
                 id: sticker.file_id,
@@ -132,6 +133,22 @@ export class Search {
                     emoji_str: emojiAliases
                 }
             });
+
+            await this.addTags(sticker.file_id, [sticker.set_name], -1, StickerTagType.SetName);
+
+            if(sticker.is_animated) {
+                await this.addTags(sticker.file_id, ['animated'], -1, StickerTagType.Metadata);
+            }
+
+            await this.addTags(sticker.file_id, [sticker.emoji], -1, StickerTagType.Emoji);
+            
+            let emojiAliasTags = [
+                emojiAliases.name, 
+                emojiAliases.alpha_code, 
+                emojiAliases.aliases
+            ].map(e => e.replace(/:/g,'').replace(/ /g, '_'))
+            .filter((e, i, self) => i === self.indexOf(e) && e != ''); // deduplicate array and remove empty strings
+            await this.addTags(sticker.file_id, emojiAliasTags, -1, StickerTagType.EmojiAlias);
         }
     }
 
@@ -195,9 +212,9 @@ export class Search {
         }
     }
     
-    public async addTags(fileId: string, tags: string[], user: number) {
+    public async addTags(fileId: string, tags: string[], user: number, type: StickerTagType = StickerTagType.UserAdded) {
         tags = tags.map(t => t.toLowerCase());
-        let stickerTags: StickerTag[] = tags.map(t => <StickerTag>{tag: t, type: StickerTagType.UserAdded, added_by: user, added_at: Date.now()});
+        let stickerTags: StickerTag[] = tags.map(t => <StickerTag>{tag: t, type: type, added_by: user, added_at: Date.now()});
 
         return this.tagOperation(fileId, stickerTags, `
         if(ctx._source?.tags != null) {
